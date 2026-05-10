@@ -82,4 +82,6 @@ make qemu-run-live ISO=/absolute/path/to/live-linux.iso
 - VM disk path: `build/qemu/hatde.qcow2`
 - Mouse is configured as a USB tablet for reliable pointer behavior in QEMU
 - Project folder is shared into the VM via 9p (`mount_tag=hostshare`)
+- Host `localhost:9090` is forwarded to guest `:9090` (Cockpit web console)
+- If host 9090 is busy, use another port: `make qemu-run VM_WEB_PORT=19090` and open `http://localhost:19090`
 - Inside the guest, install build deps (`build-essential`, `libx11-dev`, `pkg-config`), then build and run `hatde`

@@ -17,6 +17,7 @@ VM_DISK_SIZE ?= 16G
 VM_MEMORY ?= 2048
 VM_CPUS ?= 2
 VM_SSH_PORT ?= 2222
+VM_WEB_PORT ?= 9090
 ISO ?=
 QCOW_IMAGE ?=
 SHARE_DIR ?= $(CURDIR)
@@ -31,7 +32,7 @@ QEMU_COMMON := \
 	-device qemu-xhci \
 	-device usb-tablet \
 	-device virtio-net-pci,netdev=net0 \
-	-netdev user,id=net0,hostfwd=tcp::$(VM_SSH_PORT)-:22 \
+	-netdev user,id=net0,hostfwd=tcp::$(VM_SSH_PORT)-:22,hostfwd=tcp::$(VM_WEB_PORT)-:9090 \
 	-virtfs local,path=$(SHARE_DIR),mount_tag=hostshare,security_model=none,id=hostshare
 
 .PHONY: all help clean qemu-check-qcow qemu-create-disk qemu-import-qcow qemu-install qemu-run qemu-run-live qemu-run-qcow qemu-help
@@ -51,6 +52,7 @@ help:
 	@echo "  make qemu-run-qcow QCOW_IMAGE=/abs/path/to/downloaded-image.qcow2"
 	@echo "  make qemu-import-qcow QCOW_IMAGE=/abs/path/to/downloaded-image.qcow2"
 	@echo "  make qemu-run-live ISO=/abs/path/to/live.iso"
+	@echo "  make qemu-run VM_WEB_PORT=19090   # if host 9090 is busy"
 
 $(TARGET): $(OBJ)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
@@ -132,6 +134,7 @@ qemu-help:
 	@echo "  VM_MEMORY=$(VM_MEMORY) MB, VM_CPUS=$(VM_CPUS)"
 	@echo "  SHARE_DIR=$(SHARE_DIR) (9p mount tag: hostshare)"
 	@echo "  VM_SSH_PORT=$(VM_SSH_PORT)"
+	@echo "  VM_WEB_PORT=$(VM_WEB_PORT) -> guest 9090"
 
 ifeq ($(strip $(X11_LIBS)),)
 LDLIBS += -lX11
