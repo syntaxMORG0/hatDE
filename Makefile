@@ -10,7 +10,7 @@ XFT_LIBS ?= $(shell pkg-config --libs xft 2>/dev/null)
 LDLIBS ?=
 
 TARGET := hatde
-SRC := src/main.c src/app_window.c src/config.c
+SRC := src/main.c src/app_window.c src/config.c src/launcher.c
 OBJ := $(SRC:.c=.o)
 
 .PHONY: all help

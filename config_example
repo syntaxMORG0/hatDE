@@ -7,6 +7,8 @@ FONT "~/hatDE/src/assets/JetBrainsMonoNerdFont-Regular.ttf"
 # desktop
 BACKGROUND: "image" # color | gradient | image
 BACKGROUND_COLOR: "#00a2ff"
+GRADIENT_START: "#00a2ff"
+GRADIENT_END: "#001933"
 BIMAGE: "/path/to/picture"
 
 # title bar
@@ -17,5 +19,13 @@ TITLE_HEIGHT: 28
 # initial window size
 WINDOW_WIDTH: 900
 WINDOW_HEIGHT: 600
+
+# launcher
+LAUNCHER_ENABLED: 1
+LAUNCHER_WIDTH: 360
+LAUNCHER_HEIGHT: 32
+LAUNCHER_MARGIN: 12
+LAUNCHER_BG: "#1b1f26"
+LAUNCHER_FG: "#f5f5f5"
 
 

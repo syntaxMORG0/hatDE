@@ -13,11 +13,19 @@
 #define DEFAULT_BACKGROUND_MODE "color"
 #define DEFAULT_BACKGROUND_IMAGE ""
 #define DEFAULT_BACKGROUND_COLOR "#00a2ff"
+#define DEFAULT_GRADIENT_START "#00a2ff"
+#define DEFAULT_GRADIENT_END "#001933"
 #define DEFAULT_TITLE_BG "#2b2f36"
 #define DEFAULT_TITLE_FG "#f5f5f5"
 #define DEFAULT_TITLE_HEIGHT 28
 #define DEFAULT_WINDOW_WIDTH 900
 #define DEFAULT_WINDOW_HEIGHT 600
+#define DEFAULT_LAUNCHER_ENABLED 1
+#define DEFAULT_LAUNCHER_WIDTH 360
+#define DEFAULT_LAUNCHER_HEIGHT 32
+#define DEFAULT_LAUNCHER_MARGIN 12
+#define DEFAULT_LAUNCHER_BG "#1b1f26"
+#define DEFAULT_LAUNCHER_FG "#f5f5f5"
 
 static void trim(char *value) {
     if (value == NULL) {
@@ -79,11 +87,19 @@ void config_set_defaults(Config *config) {
     snprintf(config->background_mode, sizeof(config->background_mode), "%s", DEFAULT_BACKGROUND_MODE);
     snprintf(config->background_image, sizeof(config->background_image), "%s", DEFAULT_BACKGROUND_IMAGE);
     snprintf(config->background_color, sizeof(config->background_color), "%s", DEFAULT_BACKGROUND_COLOR);
+    snprintf(config->gradient_start, sizeof(config->gradient_start), "%s", DEFAULT_GRADIENT_START);
+    snprintf(config->gradient_end, sizeof(config->gradient_end), "%s", DEFAULT_GRADIENT_END);
     snprintf(config->title_bg, sizeof(config->title_bg), "%s", DEFAULT_TITLE_BG);
     snprintf(config->title_fg, sizeof(config->title_fg), "%s", DEFAULT_TITLE_FG);
     config->title_height = DEFAULT_TITLE_HEIGHT;
     config->window_width = DEFAULT_WINDOW_WIDTH;
     config->window_height = DEFAULT_WINDOW_HEIGHT;
+    config->launcher_enabled = DEFAULT_LAUNCHER_ENABLED;
+    config->launcher_width = DEFAULT_LAUNCHER_WIDTH;
+    config->launcher_height = DEFAULT_LAUNCHER_HEIGHT;
+    config->launcher_margin = DEFAULT_LAUNCHER_MARGIN;
+    snprintf(config->launcher_bg, sizeof(config->launcher_bg), "%s", DEFAULT_LAUNCHER_BG);
+    snprintf(config->launcher_fg, sizeof(config->launcher_fg), "%s", DEFAULT_LAUNCHER_FG);
 }
 
 static void config_set_value(Config *config, const char *key, char *value) {
@@ -107,6 +123,10 @@ static void config_set_value(Config *config, const char *key, char *value) {
         snprintf(config->background_image, sizeof(config->background_image), "%s", value);
     } else if (strcmp(key, "BACKGROUND_COLOR") == 0) {
         snprintf(config->background_color, sizeof(config->background_color), "%s", value);
+    } else if (strcmp(key, "GRADIENT_START") == 0) {
+        snprintf(config->gradient_start, sizeof(config->gradient_start), "%s", value);
+    } else if (strcmp(key, "GRADIENT_END") == 0) {
+        snprintf(config->gradient_end, sizeof(config->gradient_end), "%s", value);
     } else if (strcmp(key, "TITLE_BG") == 0) {
         snprintf(config->title_bg, sizeof(config->title_bg), "%s", value);
     } else if (strcmp(key, "TITLE_FG") == 0) {
@@ -126,6 +146,27 @@ static void config_set_value(Config *config, const char *key, char *value) {
         if (height > 0) {
             config->window_height = height;
         }
+    } else if (strcmp(key, "LAUNCHER_ENABLED") == 0) {
+        config->launcher_enabled = atoi(value) != 0;
+    } else if (strcmp(key, "LAUNCHER_WIDTH") == 0) {
+        int width = atoi(value);
+        if (width > 0) {
+            config->launcher_width = width;
+        }
+    } else if (strcmp(key, "LAUNCHER_HEIGHT") == 0) {
+        int height = atoi(value);
+        if (height > 0) {
+            config->launcher_height = height;
+        }
+    } else if (strcmp(key, "LAUNCHER_MARGIN") == 0) {
+        int margin = atoi(value);
+        if (margin >= 0) {
+            config->launcher_margin = margin;
+        }
+    } else if (strcmp(key, "LAUNCHER_BG") == 0) {
+        snprintf(config->launcher_bg, sizeof(config->launcher_bg), "%s", value);
+    } else if (strcmp(key, "LAUNCHER_FG") == 0) {
+        snprintf(config->launcher_fg, sizeof(config->launcher_fg), "%s", value);
     }
 }
 
@@ -233,6 +274,8 @@ int config_write_default(const Config *config, const char *path) {
     fprintf(file, "# desktop\n");
     fprintf(file, "BACKGROUND: \"%s\" # color | gradient | image\n", config->background_mode);
     fprintf(file, "BACKGROUND_COLOR: \"%s\"\n", config->background_color);
+    fprintf(file, "GRADIENT_START: \"%s\"\n", config->gradient_start);
+    fprintf(file, "GRADIENT_END: \"%s\"\n", config->gradient_end);
     fprintf(file, "BIMAGE: \"%s\"\n", config->background_image);
     fprintf(file, "\n# title bar\n");
     fprintf(file, "TITLE_BG: \"%s\"\n", config->title_bg);
@@ -241,6 +284,13 @@ int config_write_default(const Config *config, const char *path) {
     fprintf(file, "\n# initial window size\n");
     fprintf(file, "WINDOW_WIDTH: %d\n", config->window_width);
     fprintf(file, "WINDOW_HEIGHT: %d\n", config->window_height);
+    fprintf(file, "\n# launcher\n");
+    fprintf(file, "LAUNCHER_ENABLED: %d\n", config->launcher_enabled);
+    fprintf(file, "LAUNCHER_WIDTH: %d\n", config->launcher_width);
+    fprintf(file, "LAUNCHER_HEIGHT: %d\n", config->launcher_height);
+    fprintf(file, "LAUNCHER_MARGIN: %d\n", config->launcher_margin);
+    fprintf(file, "LAUNCHER_BG: \"%s\"\n", config->launcher_bg);
+    fprintf(file, "LAUNCHER_FG: \"%s\"\n", config->launcher_fg);
 
     fclose(file);
     return 1;

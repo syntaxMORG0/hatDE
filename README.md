@@ -43,6 +43,8 @@ startx
 
 hatDE reads `~/.config/hatDE/config` (based on `config_example`).
 
+Full config docs: see [docs/CONFIG.md](docs/CONFIG.md).
+
 Example:
 
 ```ini
@@ -57,4 +59,6 @@ BIMAGE: "/path/to/wallpaper.xpm"
 
 Notes:
 - `BACKGROUND: "image"` uses XPM files for now.
+- The launcher appears at the bottom-left and starts commands like `/usr/bin/xterm`.
+- No app window is created on startup until you launch one.
 - Apps launched from the terminal (for example `firefox`) are reparented into frames when they map on X11.

@@ -4,14 +4,15 @@
 #include <string.h>
 #include <unistd.h>
 
-#include <sys/stat.h>
-
 #include <X11/Xlib.h>
 #include <X11/cursorfont.h>
+#include <X11/keysym.h>
 #include <X11/xpm.h>
+#include <X11/Xft/Xft.h>
 
 #include "app_window.h"
 #include "config.h"
+#include "launcher.h"
 
 static volatile sig_atomic_t keep_running = 1;
 
@@ -23,6 +24,59 @@ typedef struct {
     int active;
     char message[256];
 } WarningPopup;
+
+static int parse_color_components(Display *display, Colormap colormap, const char *value, XColor *color) {
+    if (value == NULL || value[0] == '\0') {
+        return 0;
+    }
+
+    if (XParseColor(display, colormap, value, color) == 0) {
+        return 0;
+    }
+
+    return 1;
+}
+
+static void draw_gradient_background(
+    Display *display,
+    Window root,
+    Colormap colormap,
+    const char *start_color,
+    const char *end_color,
+    Pixmap *background_pixmap
+) {
+    int screen = DefaultScreen(display);
+    int width = DisplayWidth(display, screen);
+    int height = DisplayHeight(display, screen);
+
+    XColor start = {0};
+    XColor end = {0};
+    if (!parse_color_components(display, colormap, start_color, &start) ||
+        !parse_color_components(display, colormap, end_color, &end)) {
+        return;
+    }
+
+    Pixmap pixmap = XCreatePixmap(display, root, (unsigned int)width, (unsigned int)height, DefaultDepth(display, screen));
+    GC gc = XCreateGC(display, pixmap, 0, NULL);
+
+    for (int y = 0; y < height; y++) {
+        double t = (height <= 1) ? 0.0 : (double)y / (double)(height - 1);
+        XColor line = {0};
+        line.red = (unsigned short)(start.red + (end.red - start.red) * t);
+        line.green = (unsigned short)(start.green + (end.green - start.green) * t);
+        line.blue = (unsigned short)(start.blue + (end.blue - start.blue) * t);
+        if (XAllocColor(display, colormap, &line) != 0) {
+            XSetForeground(display, gc, line.pixel);
+            XDrawLine(display, pixmap, gc, 0, y, width, y);
+        }
+    }
+
+    XFreeGC(display, gc);
+    XSetWindowBackgroundPixmap(display, root, pixmap);
+    if (background_pixmap != NULL) {
+        *background_pixmap = pixmap;
+    }
+}
 
 static void set_root_background(
     Display *display,
@@ -67,6 +121,15 @@ static void set_root_background(
                 fprintf(stderr, "hatde: failed to load background image\n");
             }
         }
+    } else if (config != NULL && strcmp(config->background_mode, "gradient") == 0) {
+        draw_gradient_background(
+            display,
+            root,
+            colormap,
+            config->gradient_start,
+            config->gradient_end,
+            background_pixmap
+        );
     }
 
     XClearWindow(display, root);
@@ -75,6 +138,47 @@ static void set_root_background(
 static void stop_running(int signo) {
     (void)signo;
     keep_running = 0;
+}
+
+static void warning_activate(WarningPopup *popup) {
+    if (popup == NULL) {
+        return;
+    }
+    popup->active = 1;
+}
+
+static int font_path_needs_file(const char *font_path) {
+    if (font_path == NULL || font_path[0] == '\0') {
+        return 0;
+    }
+
+    const char *ext = strrchr(font_path, '.');
+    if (ext == NULL) {
+        return 0;
+    }
+
+    return strcmp(ext, ".ttf") == 0 || strcmp(ext, ".otf") == 0;
+}
+
+static int font_can_load(Display *display, int screen, const char *font_path) {
+    if (font_path == NULL || font_path[0] == '\0') {
+        return 0;
+    }
+
+    char spec[256];
+    if (font_path_needs_file(font_path) && strstr(font_path, "/") != NULL) {
+        snprintf(spec, sizeof(spec), "file=%s:size=12", font_path);
+    } else {
+        snprintf(spec, sizeof(spec), "%s", font_path);
+    }
+
+    XftFont *font = XftFontOpenName(display, screen, spec);
+    if (font == NULL) {
+        return 0;
+    }
+
+    XftFontClose(display, font);
+    return 1;
 }
 
 static int font_path_missing(const char *font_path) {
@@ -120,8 +224,12 @@ static WarningPopup warning_create(
         return popup;
     }
 
+    XSetWindowAttributes attrs;
+    memset(&attrs, 0, sizeof(attrs));
+    attrs.override_redirect = True;
+
     snprintf(popup.message, sizeof(popup.message), "%s", message);
-    popup.window = XCreateSimpleWindow(
+    popup.window = XCreateWindow(
         display,
         root,
         60,
@@ -129,9 +237,13 @@ static WarningPopup warning_create(
         420,
         70,
         1,
-        BlackPixel(display, screen),
-        WhitePixel(display, screen)
+        CopyFromParent,
+        InputOutput,
+        CopyFromParent,
+        CWOverrideRedirect,
+        &attrs
     );
+    XSetWindowBackground(display, popup.window, WhitePixel(display, screen));
     popup.gc = XCreateGC(display, popup.window, 0, NULL);
     popup.active = 1;
     XSelectInput(display, popup.window, ExposureMask | ButtonPressMask);
@@ -374,25 +486,7 @@ int main(void) {
     AppWindowList windows;
     window_list_init(&windows);
 
-    AppWindow *initial = app_window_create(
-        display,
-        root,
-        screen,
-        colormap,
-        config.font_path,
-        config.title_bg,
-        config.title_fg,
-        config.title_height,
-        100,
-        100,
-        (unsigned int)config.window_width,
-        (unsigned int)config.window_height
-    );
-    if (initial != NULL) {
-        app_window_spawn_in_frame(display, initial, config.window_cmd);
-        app_window_redraw_title(display, initial, screen);
-        window_list_add(&windows, initial);
-    }
+    Launcher launcher = launcher_create(display, root, screen, colormap, &config);
 
     XDefineCursor(display, root, cursor);
     XFlush(display);
@@ -401,10 +495,16 @@ int main(void) {
     signal(SIGTERM, stop_running);
 
     WarningPopup warning = {0};
-    if (font_path_missing(config.font_path)) {
+    if (font_path_needs_file(config.font_path) && font_path_missing(config.font_path)) {
         char message[256];
         snprintf(message, sizeof(message), "Font file missing: %s", config.font_path);
         warning = warning_create(display, root, screen, message);
+        warning_activate(&warning);
+    } else if (!font_can_load(display, screen, config.font_path)) {
+        char message[256];
+        snprintf(message, sizeof(message), "Font load failed: %s", config.font_path);
+        warning = warning_create(display, root, screen, message);
+        warning_activate(&warning);
     }
 
     while (keep_running) {
@@ -435,6 +535,10 @@ int main(void) {
                 }
             }
 
+            if (launcher_handle_event(display, &launcher, &event)) {
+                continue;
+            }
+
             if (warning.active && event.xany.window == warning.window) {
                 if (event.type == Expose) {
                     warning_draw(display, &warning, screen);
@@ -460,6 +564,16 @@ int main(void) {
     }
 
     free(windows.items);
+    launcher_destroy(display, &launcher);
+    if (warning.active) {
+        if (warning.window != None) {
+            XDestroyWindow(display, warning.window);
+        }
+        if (warning.gc != NULL) {
+            XFreeGC(display, warning.gc);
+        }
+        warning.active = 0;
+    }
     if (background_pixmap != None) {
         XFreePixmap(display, background_pixmap);
     }
