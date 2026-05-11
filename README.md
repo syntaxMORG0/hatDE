@@ -12,10 +12,18 @@ A minimal X11 desktop.
 
 ## Build
 
-Install X11 and Xpm development headers first (example on Debian/Ubuntu):
+Install X11/Xpm/Xft development headers first.
+
+Debian/Ubuntu (APT):
 
 ```bash
-sudo apt install libx11-dev libxpm-dev pkg-config
+sudo apt install libx11-dev libxpm-dev libxft-dev libfontconfig-dev pkg-config
+```
+
+Arch (Pacman):
+
+```bash
+sudo pacman -S --needed libx11 libxpm libxft fontconfig pkgconf
 ```
 
 Then build:
