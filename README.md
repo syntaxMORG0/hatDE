@@ -2,13 +2,7 @@
 
 A minimal X11 desktop.
 
-## Current behavior
-
-- Paints the full root window with sky blue `#00a2ff`
-- Sets a working left-pointer mouse cursor on the root window
-- Creates framed application windows with a title bar and drag support
-- Wraps new top-level X11 windows (like Firefox) into frames
-- Supports background images via XPM
+# INCOMPLETE!!
 
 ## Build
 
