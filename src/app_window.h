@@ -14,6 +14,7 @@ typedef struct AppWindow {
     XftDraw *title_draw;
     XftFont *title_font;
     XftColor title_color;
+    unsigned long title_fg_pixel;
     pid_t child_pid;
     int title_height;
     int dragging;
@@ -21,6 +22,9 @@ typedef struct AppWindow {
     int drag_start_y;
     int win_start_x;
     int win_start_y;
+    int close_x;
+    int close_y;
+    int close_size;
     char title_text[256];
 } AppWindow;
 
@@ -30,6 +34,9 @@ AppWindow *app_window_create(
     int screen,
     Colormap colormap,
     const char *title_font,
+    const char *title_bg,
+    const char *title_fg,
+    int title_height,
     int x,
     int y,
     unsigned int width,

@@ -12,6 +12,12 @@
 #define DEFAULT_FONT_PATH "~/hatDE/src/assets/JetBrainsMonoNerdFont-Regular.ttf"
 #define DEFAULT_BACKGROUND_MODE "color"
 #define DEFAULT_BACKGROUND_IMAGE ""
+#define DEFAULT_BACKGROUND_COLOR "#00a2ff"
+#define DEFAULT_TITLE_BG "#2b2f36"
+#define DEFAULT_TITLE_FG "#f5f5f5"
+#define DEFAULT_TITLE_HEIGHT 28
+#define DEFAULT_WINDOW_WIDTH 900
+#define DEFAULT_WINDOW_HEIGHT 600
 
 static void trim(char *value) {
     if (value == NULL) {
@@ -72,6 +78,12 @@ void config_set_defaults(Config *config) {
     snprintf(config->font_path, sizeof(config->font_path), "%s", DEFAULT_FONT_PATH);
     snprintf(config->background_mode, sizeof(config->background_mode), "%s", DEFAULT_BACKGROUND_MODE);
     snprintf(config->background_image, sizeof(config->background_image), "%s", DEFAULT_BACKGROUND_IMAGE);
+    snprintf(config->background_color, sizeof(config->background_color), "%s", DEFAULT_BACKGROUND_COLOR);
+    snprintf(config->title_bg, sizeof(config->title_bg), "%s", DEFAULT_TITLE_BG);
+    snprintf(config->title_fg, sizeof(config->title_fg), "%s", DEFAULT_TITLE_FG);
+    config->title_height = DEFAULT_TITLE_HEIGHT;
+    config->window_width = DEFAULT_WINDOW_WIDTH;
+    config->window_height = DEFAULT_WINDOW_HEIGHT;
 }
 
 static void config_set_value(Config *config, const char *key, char *value) {
@@ -93,6 +105,27 @@ static void config_set_value(Config *config, const char *key, char *value) {
         snprintf(config->background_mode, sizeof(config->background_mode), "%s", value);
     } else if (strcmp(key, "BIMAGE") == 0) {
         snprintf(config->background_image, sizeof(config->background_image), "%s", value);
+    } else if (strcmp(key, "BACKGROUND_COLOR") == 0) {
+        snprintf(config->background_color, sizeof(config->background_color), "%s", value);
+    } else if (strcmp(key, "TITLE_BG") == 0) {
+        snprintf(config->title_bg, sizeof(config->title_bg), "%s", value);
+    } else if (strcmp(key, "TITLE_FG") == 0) {
+        snprintf(config->title_fg, sizeof(config->title_fg), "%s", value);
+    } else if (strcmp(key, "TITLE_HEIGHT") == 0) {
+        int height = atoi(value);
+        if (height > 0) {
+            config->title_height = height;
+        }
+    } else if (strcmp(key, "WINDOW_WIDTH") == 0) {
+        int width = atoi(value);
+        if (width > 0) {
+            config->window_width = width;
+        }
+    } else if (strcmp(key, "WINDOW_HEIGHT") == 0) {
+        int height = atoi(value);
+        if (height > 0) {
+            config->window_height = height;
+        }
     }
 }
 
@@ -199,7 +232,15 @@ int config_write_default(const Config *config, const char *path) {
     fprintf(file, "FONT \"%s\"\n\n", config->font_path);
     fprintf(file, "# desktop\n");
     fprintf(file, "BACKGROUND: \"%s\" # color | gradient | image\n", config->background_mode);
+    fprintf(file, "BACKGROUND_COLOR: \"%s\"\n", config->background_color);
     fprintf(file, "BIMAGE: \"%s\"\n", config->background_image);
+    fprintf(file, "\n# title bar\n");
+    fprintf(file, "TITLE_BG: \"%s\"\n", config->title_bg);
+    fprintf(file, "TITLE_FG: \"%s\"\n", config->title_fg);
+    fprintf(file, "TITLE_HEIGHT: %d\n", config->title_height);
+    fprintf(file, "\n# initial window size\n");
+    fprintf(file, "WINDOW_WIDTH: %d\n", config->window_width);
+    fprintf(file, "WINDOW_HEIGHT: %d\n", config->window_height);
 
     fclose(file);
     return 1;

@@ -45,12 +45,55 @@ static void app_window_make_font_spec(const char *font_name, char *buffer, size_
     snprintf(buffer, size, "%s", font_name);
 }
 
+static unsigned long app_window_parse_color(
+    Display *display,
+    Colormap colormap,
+    const char *name,
+    unsigned long fallback
+) {
+    if (name == NULL || name[0] == '\0') {
+        return fallback;
+    }
+
+    XColor color = {0};
+    if (XParseColor(display, colormap, name, &color) == 0) {
+        return fallback;
+    }
+
+    if (XAllocColor(display, colormap, &color) == 0) {
+        return fallback;
+    }
+
+    return color.pixel;
+}
+
+static void app_window_update_close_rect(Display *display, AppWindow *window) {
+    if (window == NULL) {
+        return;
+    }
+
+    XWindowAttributes attrs;
+    XGetWindowAttributes(display, window->title, &attrs);
+
+    int size = window->title_height - 10;
+    if (size < 14) {
+        size = 14;
+    }
+
+    window->close_size = size;
+    window->close_x = attrs.width - size - 8;
+    window->close_y = (window->title_height - size) / 2;
+}
+
 AppWindow *app_window_create(
     Display *display,
     Window root,
     int screen,
     Colormap colormap,
     const char *title_font,
+    const char *title_bg,
+    const char *title_fg,
+    int title_height,
     int x,
     int y,
     unsigned int width,
@@ -61,7 +104,7 @@ AppWindow *app_window_create(
         return NULL;
     }
 
-    window->title_height = 28;
+    window->title_height = (title_height > 0) ? title_height : 28;
 
     window->frame = XCreateSimpleWindow(
         display,
@@ -75,13 +118,12 @@ AppWindow *app_window_create(
         WhitePixel(display, screen)
     );
 
-    XColor title_bg = {0};
-    unsigned long title_bg_pixel = WhitePixel(display, screen);
-    if (XParseColor(display, colormap, "#2b2f36", &title_bg) != 0) {
-        if (XAllocColor(display, colormap, &title_bg) != 0) {
-            title_bg_pixel = title_bg.pixel;
-        }
-    }
+    unsigned long title_bg_pixel = app_window_parse_color(
+        display,
+        colormap,
+        title_bg,
+        BlackPixel(display, screen)
+    );
 
     window->title = XCreateSimpleWindow(
         display,
@@ -111,6 +153,7 @@ AppWindow *app_window_create(
     window->title_draw = NULL;
     window->title_font = NULL;
     memset(&window->title_color, 0, sizeof(window->title_color));
+    window->title_fg_pixel = WhitePixel(display, screen);
 
     char font_spec[256];
     app_window_make_font_spec(title_font, font_spec, sizeof(font_spec));
@@ -129,13 +172,16 @@ AppWindow *app_window_create(
     }
 
     if (window->title_draw != NULL) {
-        XftColorAllocName(
+        const char *text_color = (title_fg != NULL && title_fg[0] != '\0') ? title_fg : "#f5f5f5";
+        if (XftColorAllocName(
             display,
             DefaultVisual(display, screen),
             colormap,
-            "#f5f5f5",
+            text_color,
             &window->title_color
-        );
+        ) == True) {
+            window->title_fg_pixel = window->title_color.pixel;
+        }
     }
 
     XSelectInput(display, window->frame, StructureNotifyMask);
@@ -218,6 +264,7 @@ void app_window_redraw_title(Display *display, AppWindow *window, int screen) {
     }
 
     XClearWindow(display, window->title);
+    app_window_update_close_rect(display, window);
 
     if (window->title_draw != NULL && window->title_font != NULL) {
         XftDrawStringUtf8(
@@ -229,7 +276,7 @@ void app_window_redraw_title(Display *display, AppWindow *window, int screen) {
             (const FcChar8 *)window->title_text,
             (int)strlen(window->title_text)
         );
-        return;
+        goto draw_close;
     }
 
     if (window->title_gc == NULL) {
@@ -245,6 +292,40 @@ void app_window_redraw_title(Display *display, AppWindow *window, int screen) {
         window->title_height - 10,
         window->title_text,
         (int)strlen(window->title_text)
+    );
+
+draw_close:
+    if (window->title_gc == NULL) {
+        return;
+    }
+
+    XSetForeground(display, window->title_gc, window->title_fg_pixel);
+    XDrawRectangle(
+        display,
+        window->title,
+        window->title_gc,
+        window->close_x,
+        window->close_y,
+        (unsigned int)window->close_size,
+        (unsigned int)window->close_size
+    );
+    XDrawLine(
+        display,
+        window->title,
+        window->title_gc,
+        window->close_x + 4,
+        window->close_y + 4,
+        window->close_x + window->close_size - 4,
+        window->close_y + window->close_size - 4
+    );
+    XDrawLine(
+        display,
+        window->title,
+        window->title_gc,
+        window->close_x + window->close_size - 4,
+        window->close_y + 4,
+        window->close_x + 4,
+        window->close_y + window->close_size - 4
     );
 }
 
@@ -320,6 +401,19 @@ int app_window_handle_event(AppWindow *window, Display *display, int screen, XEv
     }
 
     if (event->type == ButtonPress && event->xany.window == window->title && event->xbutton.button == Button1) {
+        app_window_update_close_rect(display, window);
+        if (event->xbutton.x >= window->close_x &&
+            event->xbutton.x <= window->close_x + window->close_size &&
+            event->xbutton.y >= window->close_y &&
+            event->xbutton.y <= window->close_y + window->close_size) {
+            if (window->child != None) {
+                XKillClient(display, window->child);
+            } else {
+                XDestroyWindow(display, window->frame);
+            }
+            return 1;
+        }
+
         XWindowAttributes attrs;
         XGetWindowAttributes(display, window->frame, &attrs);
         window->dragging = 1;

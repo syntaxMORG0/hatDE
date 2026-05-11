@@ -6,6 +6,12 @@ typedef struct Config {
     char font_path[256];
     char background_mode[32];
     char background_image[256];
+    char background_color[32];
+    char title_bg[32];
+    char title_fg[32];
+    int title_height;
+    int window_width;
+    int window_height;
 } Config;
 
 void config_set_defaults(Config *config);

@@ -4,6 +4,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <sys/stat.h>
+
 #include <X11/Xlib.h>
 #include <X11/cursorfont.h>
 #include <X11/xpm.h>
@@ -15,6 +17,13 @@ static volatile sig_atomic_t keep_running = 1;
 
 #define XBackgroundColor "#00a2ff"
 
+typedef struct {
+    Window window;
+    GC gc;
+    int active;
+    char message[256];
+} WarningPopup;
+
 static void set_root_background(
     Display *display,
     Window root,
@@ -22,8 +31,13 @@ static void set_root_background(
     const Config *config,
     Pixmap *background_pixmap
 ) {
+    const char *bg_color = XBackgroundColor;
+    if (config != NULL && config->background_color[0] != '\0') {
+        bg_color = config->background_color;
+    }
+
     XColor background = {0};
-    if (XParseColor(display, colormap, XBackgroundColor, &background) != 0) {
+    if (XParseColor(display, colormap, bg_color, &background) != 0) {
         if (XAllocColor(display, colormap, &background) != 0) {
             XSetWindowBackground(display, root, background.pixel);
         }
@@ -61,6 +75,69 @@ static void set_root_background(
 static void stop_running(int signo) {
     (void)signo;
     keep_running = 0;
+}
+
+static int font_path_missing(const char *font_path) {
+    if (font_path == NULL || font_path[0] == '\0') {
+        return 1;
+    }
+
+    const char *ext = strrchr(font_path, '.');
+    if (ext == NULL) {
+        return 0;
+    }
+
+    if (strcmp(ext, ".ttf") != 0 && strcmp(ext, ".otf") != 0) {
+        return 0;
+    }
+
+    return access(font_path, R_OK) != 0;
+}
+
+static void warning_draw(Display *display, WarningPopup *popup, int screen) {
+    if (popup == NULL || popup->active == 0) {
+        return;
+    }
+
+    XClearWindow(display, popup->window);
+    if (popup->gc == NULL) {
+        return;
+    }
+
+    XSetForeground(display, popup->gc, BlackPixel(display, screen));
+    XDrawString(display, popup->window, popup->gc, 12, 22, popup->message, (int)strlen(popup->message));
+    XDrawString(display, popup->window, popup->gc, 12, 44, "Click to dismiss", 16);
+}
+
+static WarningPopup warning_create(
+    Display *display,
+    Window root,
+    int screen,
+    const char *message
+) {
+    WarningPopup popup = {0};
+    if (message == NULL || message[0] == '\0') {
+        return popup;
+    }
+
+    snprintf(popup.message, sizeof(popup.message), "%s", message);
+    popup.window = XCreateSimpleWindow(
+        display,
+        root,
+        60,
+        60,
+        420,
+        70,
+        1,
+        BlackPixel(display, screen),
+        WhitePixel(display, screen)
+    );
+    popup.gc = XCreateGC(display, popup.window, 0, NULL);
+    popup.active = 1;
+    XSelectInput(display, popup.window, ExposureMask | ButtonPressMask);
+    XMapWindow(display, popup.window);
+    XRaiseWindow(display, popup.window);
+    return popup;
 }
 
 typedef struct {
@@ -143,6 +220,9 @@ static AppWindow *wrap_window(
     int screen,
     Colormap colormap,
     const char *title_font,
+    const char *title_bg,
+    const char *title_fg,
+    int title_height,
     Window child,
     int width,
     int height
@@ -165,6 +245,9 @@ static AppWindow *wrap_window(
         screen,
         colormap,
         title_font,
+        title_bg,
+        title_fg,
+        title_height,
         x,
         y,
         (unsigned int)width,
@@ -188,6 +271,9 @@ static void handle_new_window(
     int screen,
     Colormap colormap,
     const char *title_font,
+    const char *title_bg,
+    const char *title_fg,
+    int title_height,
     Window window
 ) {
     if (window == root) {
@@ -220,13 +306,27 @@ static void handle_new_window(
         height = 600;
     }
 
-    wrap_window(list, display, root, screen, colormap, title_font, window, width, height);
+    wrap_window(
+        list,
+        display,
+        root,
+        screen,
+        colormap,
+        title_font,
+        title_bg,
+        title_fg,
+        title_height,
+        window,
+        width,
+        height
+    );
 }
 
 static void handle_destroy(AppWindowList *list, Display *display, Window window) {
     for (size_t i = 0; i < list->count; i++) {
         AppWindow *app = list->items[i];
-        if (app->child == window) {
+        if (app->frame == window || app->title == window ||
+            app->content == window || app->child == window) {
             app_window_destroy(display, app);
             window_list_remove(list, i);
             return;
@@ -280,10 +380,13 @@ int main(void) {
         screen,
         colormap,
         config.font_path,
+        config.title_bg,
+        config.title_fg,
+        config.title_height,
         100,
         100,
-        900,
-        600
+        (unsigned int)config.window_width,
+        (unsigned int)config.window_height
     );
     if (initial != NULL) {
         app_window_spawn_in_frame(display, initial, config.window_cmd);
@@ -296,6 +399,13 @@ int main(void) {
 
     signal(SIGINT, stop_running);
     signal(SIGTERM, stop_running);
+
+    WarningPopup warning = {0};
+    if (font_path_missing(config.font_path)) {
+        char message[256];
+        snprintf(message, sizeof(message), "Font file missing: %s", config.font_path);
+        warning = warning_create(display, root, screen, message);
+    }
 
     while (keep_running) {
         while (XPending(display) > 0) {
@@ -310,6 +420,9 @@ int main(void) {
                     screen,
                     colormap,
                     config.font_path,
+                    config.title_bg,
+                    config.title_fg,
+                    config.title_height,
                     event.xmap.window
                 );
             } else if (event.type == DestroyNotify) {
@@ -319,6 +432,18 @@ int main(void) {
                 if (app != NULL && app->child == event.xproperty.window) {
                     app_window_set_title_from_child(display, app);
                     app_window_redraw_title(display, app, screen);
+                }
+            }
+
+            if (warning.active && event.xany.window == warning.window) {
+                if (event.type == Expose) {
+                    warning_draw(display, &warning, screen);
+                } else if (event.type == ButtonPress) {
+                    XDestroyWindow(display, warning.window);
+                    if (warning.gc != NULL) {
+                        XFreeGC(display, warning.gc);
+                    }
+                    warning.active = 0;
                 }
             }
 

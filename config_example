@@ -6,6 +6,16 @@ FONT "~/hatDE/src/assets/JetBrainsMonoNerdFont-Regular.ttf"
 
 # desktop
 BACKGROUND: "image" # color | gradient | image
+BACKGROUND_COLOR: "#00a2ff"
 BIMAGE: "/path/to/picture"
+
+# title bar
+TITLE_BG: "#2b2f36"
+TITLE_FG: "#f5f5f5"
+TITLE_HEIGHT: 28
+
+# initial window size
+WINDOW_WIDTH: 900
+WINDOW_HEIGHT: 600
 
 
