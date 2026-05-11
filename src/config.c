@@ -1,9 +1,11 @@
 #include "config.h"
 
 #include <ctype.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #define DEFAULT_WINDOW_CMD "/usr/bin/xterm"
 #define DEFAULT_CURSOR_PATH "~/hatDE/src/assets/cursor.svg"
@@ -141,6 +143,63 @@ int config_load(Config *config, const char *path) {
         trim(value);
         config_set_value(config, key, value);
     }
+
+    fclose(file);
+    return 1;
+}
+
+static int config_ensure_directories(const char *path) {
+    char buffer[512];
+    size_t len = strlen(path);
+    if (len == 0 || len >= sizeof(buffer)) {
+        return 0;
+    }
+
+    snprintf(buffer, sizeof(buffer), "%s", path);
+    char *last_slash = strrchr(buffer, '/');
+    if (last_slash == NULL) {
+        return 1;
+    }
+    *last_slash = '\0';
+
+    for (char *cursor = buffer + 1; *cursor != '\0'; cursor++) {
+        if (*cursor == '/') {
+            *cursor = '\0';
+            if (mkdir(buffer, 0700) != 0 && errno != EEXIST) {
+                return 0;
+            }
+            *cursor = '/';
+        }
+    }
+
+    if (mkdir(buffer, 0700) != 0 && errno != EEXIST) {
+        return 0;
+    }
+
+    return 1;
+}
+
+int config_write_default(const Config *config, const char *path) {
+    if (config == NULL || path == NULL) {
+        return 0;
+    }
+
+    if (!config_ensure_directories(path)) {
+        return 0;
+    }
+
+    FILE *file = fopen(path, "w");
+    if (file == NULL) {
+        return 0;
+    }
+
+    fprintf(file, "# This is a placeholder\n\n");
+    fprintf(file, "WINDOW: \"%s\"\n", config->window_cmd);
+    fprintf(file, "CURSOR: \"%s\"\n", config->cursor_path);
+    fprintf(file, "FONT \"%s\"\n\n", config->font_path);
+    fprintf(file, "# desktop\n");
+    fprintf(file, "BACKGROUND: \"%s\" # color | gradient | image\n", config->background_mode);
+    fprintf(file, "BIMAGE: \"%s\"\n", config->background_image);
 
     fclose(file);
     return 1;

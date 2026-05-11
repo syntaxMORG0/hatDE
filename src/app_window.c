@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include <X11/Xlib.h>
+#include <X11/Xft/Xft.h>
 
 static void app_window_resize_content(Display *display, AppWindow *window, int width, int height) {
     int content_height = height - window->title_height;
@@ -28,11 +29,28 @@ static void app_window_resize_content(Display *display, AppWindow *window, int w
     }
 }
 
+static void app_window_make_font_spec(const char *font_name, char *buffer, size_t size) {
+    if (font_name == NULL || font_name[0] == '\0') {
+        snprintf(buffer, size, "sans-12");
+        return;
+    }
+
+    const char *ext = strrchr(font_name, '.');
+    if (strstr(font_name, "/") != NULL && ext != NULL &&
+        (strcmp(ext, ".ttf") == 0 || strcmp(ext, ".otf") == 0)) {
+        snprintf(buffer, size, "file=%s:size=12", font_name);
+        return;
+    }
+
+    snprintf(buffer, size, "%s", font_name);
+}
+
 AppWindow *app_window_create(
     Display *display,
     Window root,
     int screen,
     Colormap colormap,
+    const char *title_font,
     int x,
     int y,
     unsigned int width,
@@ -90,6 +108,35 @@ AppWindow *app_window_create(
     );
 
     window->title_gc = XCreateGC(display, window->title, 0, NULL);
+    window->title_draw = NULL;
+    window->title_font = NULL;
+    memset(&window->title_color, 0, sizeof(window->title_color));
+
+    char font_spec[256];
+    app_window_make_font_spec(title_font, font_spec, sizeof(font_spec));
+    window->title_draw = XftDrawCreate(
+        display,
+        window->title,
+        DefaultVisual(display, screen),
+        colormap
+    );
+    if (window->title_draw != NULL) {
+        window->title_font = XftFontOpenName(display, screen, font_spec);
+        if (window->title_font == NULL) {
+            XftDrawDestroy(window->title_draw);
+            window->title_draw = NULL;
+        }
+    }
+
+    if (window->title_draw != NULL) {
+        XftColorAllocName(
+            display,
+            DefaultVisual(display, screen),
+            colormap,
+            "#f5f5f5",
+            &window->title_color
+        );
+    }
 
     XSelectInput(display, window->frame, StructureNotifyMask);
     XSelectInput(
@@ -114,6 +161,23 @@ void app_window_destroy(Display *display, AppWindow *window) {
 
     if (window->title_gc != NULL) {
         XFreeGC(display, window->title_gc);
+    }
+
+    if (window->title_draw != NULL) {
+        XftDrawDestroy(window->title_draw);
+    }
+
+    if (window->title_font != NULL) {
+        XftFontClose(display, window->title_font);
+    }
+
+    if (window->title_color.pixel != 0) {
+        XftColorFree(
+            display,
+            DefaultVisual(display, DefaultScreen(display)),
+            DefaultColormap(display, DefaultScreen(display)),
+            &window->title_color
+        );
     }
 
     if (window->frame != None) {
@@ -154,6 +218,20 @@ void app_window_redraw_title(Display *display, AppWindow *window, int screen) {
     }
 
     XClearWindow(display, window->title);
+
+    if (window->title_draw != NULL && window->title_font != NULL) {
+        XftDrawStringUtf8(
+            window->title_draw,
+            &window->title_color,
+            window->title_font,
+            10,
+            window->title_height - 8,
+            (const FcChar8 *)window->title_text,
+            (int)strlen(window->title_text)
+        );
+        return;
+    }
+
     if (window->title_gc == NULL) {
         return;
     }

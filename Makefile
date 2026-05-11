@@ -5,6 +5,8 @@ X11_CFLAGS ?= $(shell pkg-config --cflags x11 2>/dev/null)
 X11_LIBS ?= $(shell pkg-config --libs x11 2>/dev/null)
 XPM_CFLAGS ?= $(shell pkg-config --cflags xpm 2>/dev/null)
 XPM_LIBS ?= $(shell pkg-config --libs xpm 2>/dev/null)
+XFT_CFLAGS ?= $(shell pkg-config --cflags xft 2>/dev/null)
+XFT_LIBS ?= $(shell pkg-config --libs xft 2>/dev/null)
 LDLIBS ?=
 
 TARGET := hatde
@@ -24,7 +26,7 @@ $(TARGET): $(OBJ)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 %.o: %.c
-	$(CC) $(CFLAGS) $(X11_CFLAGS) $(XPM_CFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) $(X11_CFLAGS) $(XPM_CFLAGS) $(XFT_CFLAGS) -c -o $@ $<
 
 clean:
 	rm -f $(TARGET) $(OBJ)
@@ -39,4 +41,10 @@ ifeq ($(strip $(XPM_LIBS)),)
 LDLIBS += -lXpm
 else
 LDLIBS += $(XPM_LIBS)
+endif
+
+ifeq ($(strip $(XFT_LIBS)),)
+LDLIBS += -lXft -lfontconfig
+else
+LDLIBS += $(XFT_LIBS)
 endif

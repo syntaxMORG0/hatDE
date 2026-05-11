@@ -142,6 +142,7 @@ static AppWindow *wrap_window(
     Window root,
     int screen,
     Colormap colormap,
+    const char *title_font,
     Window child,
     int width,
     int height
@@ -163,6 +164,7 @@ static AppWindow *wrap_window(
         root,
         screen,
         colormap,
+        title_font,
         x,
         y,
         (unsigned int)width,
@@ -185,6 +187,7 @@ static void handle_new_window(
     Window root,
     int screen,
     Colormap colormap,
+    const char *title_font,
     Window window
 ) {
     if (window == root) {
@@ -217,7 +220,7 @@ static void handle_new_window(
         height = 600;
     }
 
-    wrap_window(list, display, root, screen, colormap, window, width, height);
+    wrap_window(list, display, root, screen, colormap, title_font, window, width, height);
 }
 
 static void handle_destroy(AppWindowList *list, Display *display, Window window) {
@@ -239,7 +242,11 @@ int main(void) {
     char config_path[512];
     if (home != NULL) {
         snprintf(config_path, sizeof(config_path), "%s/.config/hatDE/config", home);
-        config_load(&config, config_path);
+        if (!config_load(&config, config_path)) {
+            if (config_write_default(&config, config_path)) {
+                config_load(&config, config_path);
+            }
+        }
     }
 
     Display *display = XOpenDisplay(NULL);
@@ -267,7 +274,17 @@ int main(void) {
     AppWindowList windows;
     window_list_init(&windows);
 
-    AppWindow *initial = app_window_create(display, root, screen, colormap, 100, 100, 900, 600);
+    AppWindow *initial = app_window_create(
+        display,
+        root,
+        screen,
+        colormap,
+        config.font_path,
+        100,
+        100,
+        900,
+        600
+    );
     if (initial != NULL) {
         app_window_spawn_in_frame(display, initial, config.window_cmd);
         app_window_redraw_title(display, initial, screen);
@@ -286,7 +303,15 @@ int main(void) {
             XNextEvent(display, &event);
 
             if (event.type == MapNotify) {
-                handle_new_window(&windows, display, root, screen, colormap, event.xmap.window);
+                handle_new_window(
+                    &windows,
+                    display,
+                    root,
+                    screen,
+                    colormap,
+                    config.font_path,
+                    event.xmap.window
+                );
             } else if (event.type == DestroyNotify) {
                 handle_destroy(&windows, display, event.xdestroywindow.window);
             } else if (event.type == PropertyNotify) {

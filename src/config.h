@@ -10,3 +10,4 @@ typedef struct Config {
 
 void config_set_defaults(Config *config);
 int config_load(Config *config, const char *path);
+int config_write_default(const Config *config, const char *path);

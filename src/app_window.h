@@ -3,6 +3,7 @@
 #include <sys/types.h>
 
 #include <X11/Xlib.h>
+#include <X11/Xft/Xft.h>
 
 typedef struct AppWindow {
     Window frame;
@@ -10,6 +11,9 @@ typedef struct AppWindow {
     Window content;
     Window child;
     GC title_gc;
+    XftDraw *title_draw;
+    XftFont *title_font;
+    XftColor title_color;
     pid_t child_pid;
     int title_height;
     int dragging;
@@ -25,6 +29,7 @@ AppWindow *app_window_create(
     Window root,
     int screen,
     Colormap colormap,
+    const char *title_font,
     int x,
     int y,
     unsigned int width,
