@@ -30,9 +30,8 @@ make help
 ## Run (inside an X11 session)
 
 ```bash
-./hatde
+echo "exec /path/to/hatde" >> "~/.xinitrc"
+startx
 ```
 
 Run `picom` separately in the same session.
-
-config`), then build and run `hatde`
