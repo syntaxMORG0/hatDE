@@ -1,6 +1,6 @@
 # hatDE
 
-A minimal X11 desktop base intended to run with the picom compositor.
+A minimal X11 desktop.
 
 ## Current behavior
 
@@ -33,5 +33,3 @@ make help
 echo "exec /path/to/hatde" >> "~/.xinitrc"
 startx
 ```
-
-Run `picom` separately in the same session.
