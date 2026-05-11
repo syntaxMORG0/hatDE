@@ -1,0 +1,5 @@
+# This is a placeholder
+
+WINDOW: "/usr/bin/xterm"
+CURSOR: "~/hatDE/src/assets/cursor.svg"
+FONT "~/hatDE/src/assets/JetBrainsMonoNerdFont-Regular.ttf"
